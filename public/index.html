@@ -1,11 +1,61 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Streak Pilot</title><style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono&family=Manrope:wght@400;500;600;700;800&display=swap');
-*{box-sizing:border-box}body{margin:0;color:#17211b;background:#eef4e9;font-family:Manrope,Arial,sans-serif}.shell{max-width:1100px;margin:auto;padding:38px 22px 72px}.top{display:flex;justify-content:space-between;gap:18px;align-items:center}.brand{display:flex;gap:12px;align-items:center}.mark{width:43px;height:43px;border-radius:15px;background:#e85b34;display:grid;place-items:center;color:white;font-weight:800;font-size:22px;box-shadow:5px 5px #17211b}.eyebrow{font:12px 'DM Mono';letter-spacing:.12em;text-transform:uppercase;color:#4f6455}.status{font:12px 'DM Mono';padding:8px 11px;border:1px solid #b7c9b4;border-radius:999px;background:#f9fcf6}.hero{margin:55px 0 35px;display:grid;grid-template-columns:1.4fr .7fr;gap:24px}.hero h1{font-size:clamp(42px,6vw,78px);line-height:.95;letter-spacing:-.065em;margin:10px 0 18px}.hero p{max-width:550px;font-size:17px;line-height:1.55;color:#4f6455}.spark{background:#17211b;color:#e9f6da;border-radius:28px;padding:24px;align-self:end;min-height:185px;display:flex;flex-direction:column;justify-content:space-between}.spark b{font-size:48px;letter-spacing:-.08em}.grid{display:grid;grid-template-columns:1fr .85fr;gap:22px}.card{background:#fffefa;border:1px solid #d4dfcf;border-radius:23px;padding:25px;box-shadow:0 10px 28px #3753320b}.card h2{margin:0 0 6px;font-size:21px;letter-spacing:-.04em}.hint{color:#69806d;font-size:13px;margin:0 0 23px;line-height:1.5}label{display:block;font:12px 'DM Mono';color:#4f6455;margin:15px 0 7px}input,select{width:100%;border:1px solid #c8d6c3;border-radius:11px;background:#f8fbf5;padding:12px;font:14px Manrope;color:#17211b;outline:none}input:focus,select:focus{border-color:#e85b34;box-shadow:0 0 0 3px #e85b3420}.slots{display:grid;gap:10px}.slot{display:grid;grid-template-columns:1fr .75fr 1fr 32px;gap:8px;align-items:end;padding:12px;background:#f1f6ed;border-radius:15px}.slot label{margin:0 0 5px;font-size:10px}.slot input{padding:9px}.icon{border:0;background:transparent;color:#a74a30;font-size:19px;cursor:pointer;padding:7px}.actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}button{border:0;border-radius:13px;padding:12px 16px;font:600 13px Manrope;cursor:pointer}.primary{background:#e85b34;color:#fff;box-shadow:3px 3px #17211b}.secondary{background:#dcebd7;color:#223728}.add{background:transparent;border:1px dashed #a8bda4;color:#45614a;width:100%;margin-top:10px}.log{min-height:170px;background:#17211b;border-radius:16px;color:#ceebc4;padding:17px;font:12px/1.6 'DM Mono';white-space:pre-wrap}.note{font-size:12px;color:#64756a;line-height:1.6;margin-top:18px}@media(max-width:720px){.hero,.grid{grid-template-columns:1fr}.slot{grid-template-columns:1fr 1fr}.slot button{grid-column:2}.top{align-items:flex-start}.status{white-space:nowrap}}
-</style></head><body><main class="shell"><header class="top"><div class="brand"><div class="mark">↗</div><div><b>Streak Pilot</b><div class="eyebrow">GitHub contribution scheduler</div></div></div><div class="status" id="status">Checking scheduler…</div></header><section class="hero"><div><div class="eyebrow">A calm little autopilot</div><h1>Keep your green squares in motion.</h1><p>Choose one or more daily moments, decide exactly how many commits each one creates, and let this tiny service update your own repository.</p></div><aside class="spark"><span class="eyebrow" style="color:#a9cba0">Today’s plan</span><b id="todayCount">0 commits</b><span id="todayTimes">Add a time to begin</span></aside></section><section class="grid"><form class="card" id="form"><h2>Your destination</h2><p class="hint">This app never stores your GitHub token. Set it as an environment variable where the scheduler runs.</p><label>Repository</label><input id="repository" placeholder="your-name/streak-repo" required><label>Branch</label><input id="branch" placeholder="main" required><label>Time zone</label><select id="timezone"></select><h2 style="margin-top:31px">Daily schedule</h2><p class="hint">Each row makes its own group of commits. Maximum 20 commits per time slot.</p><div id="slots" class="slots"></div><button type="button" class="add" id="add">+ Add another time</button><div class="actions"><button class="primary">Save schedule</button><button type="button" class="secondary" id="test">Test run now</button></div></form><aside class="card"><h2>Activity console</h2><p class="hint">Use test mode before giving the service access to a real repository.</p><div class="log" id="log">Ready.</div><p class="note">A scheduled contribution only counts if the target repository’s commits are eligible for your GitHub contribution graph.</p></aside></section></main><script>
-const $=id=>document.getElementById(id), zones=Intl.supportedValuesOf?.('timeZone')||['UTC']; $('timezone').innerHTML=zones.map(z=>`<option>${z}</option>`).join('');
-let cfg={repository:'',branch:'main',timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,schedules:[{id:'morning',time:'09:15',commits:1,message:'chore: daily streak'}]}; const log=x=>$('log').textContent=`${new Date().toLocaleTimeString()}  ${x}\n`+$('log').textContent;
-function render(){ $('repository').value=cfg.repository;$('branch').value=cfg.branch;$('timezone').value=cfg.timezone; $('slots').innerHTML=''; cfg.schedules.forEach((s,i)=>{let row=document.createElement('div');row.className='slot';row.innerHTML=`<div><label>Time</label><input type="time" value="${s.time}"></div><div><label>Commits</label><input type="number" min="1" max="20" value="${s.commits}"></div><div><label>Message</label><input value="${s.message||''}"></div><button type="button" class="icon" title="Remove">×</button>`;let inputs=row.querySelectorAll('input');inputs[0].oninput=e=>{s.time=e.target.value;summary()};inputs[1].oninput=e=>{s.commits=+e.target.value;summary()};inputs[2].oninput=e=>s.message=e.target.value;row.querySelector('button').onclick=()=>{cfg.schedules.splice(i,1);render()};$('slots').append(row)});summary()}
-function summary(){let n=cfg.schedules.reduce((a,s)=>a+(+s.commits||0),0);$('todayCount').textContent=`${n} commit${n===1?'':'s'}`;$('todayTimes').textContent=cfg.schedules.length?cfg.schedules.map(s=>`${s.time} · ${s.commits}`).join('  /  '):'Add a time to begin'}
-$('add').onclick=()=>{cfg.schedules.push({id:`slot-${Date.now()}`,time:'18:00',commits:1,message:'chore: daily streak'});render()};$('form').onsubmit=async e=>{e.preventDefault();cfg.repository=$('repository').value.trim();cfg.branch=$('branch').value.trim();cfg.timezone=$('timezone').value;let r=await fetch('/api/config',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(cfg)}),d=await r.json();log(r.ok?'Schedule saved.':`Error: ${d.error}`)};$('test').onclick=async()=>{log('Starting test run…');let r=await fetch('/api/test-run',{method:'POST'}),d=await r.json();log(r.ok?`Success: created ${d.commits} ${d.mock?'mock ':''}commit(s).`:`Error: ${d.error}`)};fetch('/api/config').then(r=>r.json()).then(x=>{cfg=x;render()});fetch('/api/status').then(r=>r.json()).then(x=>{$('status').textContent=x.mock?'Mock mode active':x.configured?'Scheduler armed':'Token not configured'}).catch(()=>{$('status').textContent='Offline'});
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Streak Pilot — schedule your GitHub commits</title>
+  <meta name="description" content="Pick a repository, set the times, and Streak Pilot makes real commits for you every day. Runs in the cloud, not on your computer.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/"><i aria-hidden="true"></i>Streak Pilot</a>
+      <a class="btn ghost" href="/auth/login">Sign in</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Your commits, on a schedule you set.</h1>
+        <p>Choose a repository and the times of day. Streak Pilot makes real commits at those minutes, every day, from the cloud. Your computer can stay off.</p>
+        <div id="error" class="notice hidden" role="alert"></div>
+        <div class="actions">
+          <a class="btn primary" href="/auth/login">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            Sign in with GitHub
+          </a>
+        </div>
+        <div class="graph" aria-label="Illustration of a year of daily commits">
+          <div class="graph-grid" id="hero-grid"></div>
+          <div class="graph-foot"><span>One year, no gaps</span><span>Every square is a commit Streak Pilot made on time</span></div>
+        </div>
+      </section>
+
+      <section class="steps" aria-label="How it works">
+        <ol>
+          <li><b>1</b><h3>Sign in with GitHub</h3><p>Streak Pilot asks for repository access so it can commit on your behalf. Nothing else.</p></li>
+          <li><b>2</b><h3>Pick or create a repository</h3><p>Use one you have, or let Streak Pilot create a private one just for this.</p></li>
+          <li><b>3</b><h3>Set your times</h3><p>Add as many daily slots as you like, choose the days and how many commits each slot makes.</p></li>
+        </ol>
+      </section>
+
+      <section class="facts">
+        <div><h3>Exact to the minute</h3><p>Each account has its own timer in the cloud, so a 09:15 slot commits at 09:15 in your time zone. Add a random delay if you prefer it to look less regular.</p></div>
+        <div><h3>Your token stays sealed</h3><p>The GitHub token is encrypted before it is stored and is only used to write one file, <code>.github/streak-pulse.txt</code>, in the repository you pick.</p></div>
+        <div><h3>Leave whenever you want</h3><p>Pause your schedule with one switch. Deleting your account removes your data and revokes GitHub access.</p></div>
+        <div><h3>What GitHub counts</h3><p>GitHub decides what appears on your graph: commits must land on the default branch, and private repositories only show if you enable private contributions on your profile.</p></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Streak Pilot is free and open source.</span>
+      <span>Use it in line with GitHub's terms.</span>
+    </footer>
+  </div>
+  <script src="/landing.js" type="module"></script>
+</body>
+</html>

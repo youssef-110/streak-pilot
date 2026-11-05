@@ -1,37 +1,75 @@
 # Streak Pilot
 
-A free, self-hosted dashboard that creates scheduled commits in a repository you control. It uses the GitHub Contents API to update `.github/streak-pulse.txt`, creating real commits under the account represented by `GITHUB_TOKEN`.
+Schedule real GitHub commits at exact times, from a hosted dashboard. Sign in with GitHub, pick (or create) a repository, set your daily times. Streak Pilot runs in the cloud, so your computer can stay off.
 
-## Start locally
+## Features
 
-Requires Node.js 18 or newer.
+- **Sign in with GitHub.** Anyone can use it; each account is separate.
+- **Exact timing.** Every user has their own Durable Object alarm, set to their next slot, in their own time zone (DST handled).
+- **Many slots a day.** Up to 12 times a day, 1–20 commits each, per-slot weekdays and commit message (`{n}`, `{total}`, `{date}`, `{time}` placeholders).
+- **Random delay** (up to 2 h, stable per day) if you want commits to look less regular.
+- **Create a repository** from the dashboard, or pick one of yours. Warns when the branch is not the default branch (GitHub only counts commits there).
+- **Dashboard:** live countdown to the next commit, upcoming runs, streak, totals, heatmap, run history with links to the commits.
+- **Test run** button (rate limited to one per minute).
+- **Pause** with one switch. **Delete account** erases data and revokes GitHub access.
+- Runs never execute twice: each run has a unique key (`user:slot:local-date`). Transient GitHub errors retry up to 3 times. A revoked token stops the schedule and asks the user to reconnect.
 
-```powershell
-$env:GITHUB_TOKEN = "your_fine_grained_token"
-npm start
+## How it works
+
+```
+Browser ── /auth/* (GitHub OAuth) ──▶ Worker ──▶ D1 (users, slots, runs, sessions)
+        ── /api/*                 ──▶ Worker ──▶ Scheduler Durable Object (one per user)
+                                                   └─ alarm at next slot ─▶ GitHub Contents API
 ```
 
-Open `http://localhost:8787`, enter `owner/repository`, add one or more time slots, and save. The scheduler checks every 30 seconds and runs a slot once on its chosen day in its configured time zone.
+Each commit rewrites `.github/streak-pulse.txt` through the GitHub Contents API, authored as the signed-in user.
 
-For a safe test without GitHub access:
+## Security
 
-```powershell
-$env:MOCK_GITHUB = "1"
-npm start
+- GitHub tokens are encrypted with AES-GCM (`TOKEN_KEY` secret) before they are stored.
+- Sessions are random tokens in `__Host-` HttpOnly, Secure, SameSite=Lax cookies; only their SHA-256 hash is stored.
+- State-changing requests must carry a same-origin `Origin` header.
+- Strict Content-Security-Policy on all pages (`public/_headers`).
+- OAuth scope is `repo`, which GitHub requires to write to private repositories.
+
+## Deploy (Cloudflare, free plan)
+
+1. Create a GitHub OAuth App at <https://github.com/settings/applications/new>:
+   - Homepage URL: `https://streak-pilot.<your-subdomain>.workers.dev`
+   - Callback URL: `https://streak-pilot.<your-subdomain>.workers.dev/auth/callback`
+2. Put the Client ID in `wrangler.jsonc` under `vars.GITHUB_CLIENT_ID`.
+3. Create the database and secrets:
+
+```bash
+npx wrangler d1 create streak-pilot          # paste the id into wrangler.jsonc
+npm run db:init
+npx wrangler secret put GITHUB_CLIENT_SECRET
+npx wrangler secret put TOKEN_KEY            # any long random string; changing it signs everyone out of GitHub
+npm run deploy
 ```
 
-Then press **Test run now**. Mock mode reports success but makes no external request.
+## Local development
 
-## GitHub token
+`.dev.vars` (git-ignored) enables a fake GitHub and a dev sign-in, so nothing touches real repositories:
 
-Create a fine-grained personal access token restricted to the target repository, with **Contents: Read and write** permission. Keep it only in the host's `GITHUB_TOKEN` environment variable. Do not paste it into the dashboard or commit it to this project.
+```
+MOCK_GITHUB=1
+DEV_LOGIN=1
+TOKEN_KEY=local-dev-only-key
+GITHUB_CLIENT_ID=dev
+```
 
-## Free 24/7 option
+```bash
+npm install
+npm run db:init:local
+npm run dev        # then open http://localhost:8787/auth/dev
+npm test
+```
 
-Deploy this repository to an always-on machine you already control (a Raspberry Pi, home server, or inexpensive/free VPS), set `GITHUB_TOKEN` in that host’s secret/environment settings, and run it with a service manager. Windows Task Scheduler can start it on boot; on Linux use `systemd` with `Restart=always`.
+## What GitHub counts
 
-For a zero-cost cloud alternative, adapt the scheduler to a GitHub Actions workflow in a public repository. GitHub schedules are not precise and scheduled workflows can be delayed, so it is less reliable for exact times. This Node service is the better choice when timing matters.
+GitHub, not Streak Pilot, decides what shows on the contribution graph: the commit must be on the repository's default branch, authored by an email on your account, and private-repository contributions only show if "Private contributions" is enabled on your profile. Use the tool within GitHub's Terms of Service.
 
-## Important note
+## License
 
-GitHub decides what appears on your contribution graph. Commits must be attributed to your verified email and be in an eligible repository/branch. This tool cannot guarantee a graph square if GitHub's contribution rules do not count a commit.
+MIT

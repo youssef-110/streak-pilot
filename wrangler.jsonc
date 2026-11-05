@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "streak-pilot",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/auth/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "streak-pilot", "database_id": "ed17f1b6-87fa-4b0e-8e3b-4f8a1d25da77" }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SCHEDULER", "class_name": "Scheduler" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Scheduler"] }],
+  "vars": { "GITHUB_CLIENT_ID": "" },
+  "observability": { "enabled": true }
+}
