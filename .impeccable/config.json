@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "mona sans",
+        "createdAt": "2026-11-05T16:18:57.735Z",
+        "reason": "brief: user asked for a GitHub-suited look; Mona Sans is GitHub's own open-source face"
+      },
+      {
+        "rule": "tight-leading",
+        "value": "*",
+        "files": [
+          "public/index.html"
+        ],
+        "createdAt": "2026-11-05T16:18:57.895Z",
+        "reason": "hero h1 display headline at 1.04 is deliberate; body copy uses 1.5"
+      }
+    ]
+  }
+}
