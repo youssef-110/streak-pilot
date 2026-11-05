@@ -3,24 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard — Streak Pilot</title>
+  <title>Dashboard · Streak Pilot</title>
+  <meta name="theme-color" content="#151a21" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f6f8fa" media="(prefers-color-scheme: light)">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mona+Sans:wdth,wght@75..125,300..800&display=swap">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="wrap">
-    <header class="top app-top">
-      <a class="brand" href="/"><i aria-hidden="true"></i>Streak Pilot</a>
+  <a class="skip" href="#schedule">Skip to schedule</a>
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Streak Pilot home">
+        <svg viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="15" width="6" height="10" rx="1.5" fill="var(--c2)"/><rect x="10" y="9" width="6" height="16" rx="1.5" fill="var(--c3)"/><rect x="19" y="2" width="6" height="23" rx="1.5" fill="var(--c4)"/></svg>
+        Streak Pilot
+      </a>
       <div class="who">
-        <span id="login"></span>
-        <img id="avatar" class="hidden" alt="" width="32" height="32">
-        <button class="btn ghost" id="logout">Sign out</button>
+        <span class="login" id="login"></span>
+        <img id="avatar" class="hidden" alt="" width="28" height="28">
+        <button class="btn quiet" id="logout">Sign out</button>
       </div>
-    </header>
+    </div>
+  </header>
 
+  <div class="wrap">
     <div id="reconnect" class="banner hidden" role="alert">
       <span>GitHub no longer accepts Streak Pilot's access, so scheduled commits are stopped.</span>
       <a class="btn" href="/auth/login">Reconnect GitHub</a>
@@ -28,58 +36,69 @@
 
     <div class="layout">
       <aside class="side">
-        <section class="panel next" id="next" aria-live="polite">
-          <small><span class="dot"></span><span id="next-label">Next commit</span></small>
-          <div class="count" id="countdown">—</div>
-          <div class="when" id="next-when"></div>
-          <div class="upcoming" id="upcoming"></div>
+        <section class="profile" aria-label="Your account">
+          <img id="profile-avatar" class="hidden" alt="" width="96" height="96">
+          <div>
+            <div class="name" id="profile-name"></div>
+            <div class="handle" id="profile-login"></div>
+          </div>
+          <span class="pill" id="state-pill"><i></i><span id="state-text">Loading</span></span>
         </section>
 
-        <section class="panel">
-          <div class="stats">
-            <div><strong id="s-streak">0</strong><span>day streak</span></div>
-            <div><strong id="s-total">0</strong><span>commits made</span></div>
-            <div><strong id="s-days">0</strong><span>active days</span></div>
+        <section class="box next" id="next" aria-live="polite">
+          <div class="box-body">
+            <div class="hint" id="next-label">Next commit</div>
+            <div class="count" id="countdown">Off</div>
+            <div class="when" id="next-when"></div>
           </div>
-          <div class="mini graph-grid" id="mini" aria-label="Commits made by Streak Pilot over recent weeks"></div>
+          <ul class="upcoming" id="upcoming" aria-label="Upcoming runs"></ul>
         </section>
 
-        <section class="panel">
-          <h2>Test it now</h2>
-          <p class="hint" style="margin-bottom:12px">Makes real commits right away, so you can check they show up in your repository.</p>
-          <div class="row" style="grid-template-columns: 110px 1fr; align-items:center">
-            <div class="stepper"><button type="button" data-step="-1" aria-label="Fewer">−</button><input id="run-count" type="number" min="1" max="20" value="1" aria-label="Commits to make now"><button type="button" data-step="1" aria-label="More">+</button></div>
-            <button class="btn" id="run-now">Commit now</button>
+        <section class="box" aria-labelledby="test-title">
+          <div class="box-body">
+            <h2 class="section-title" id="test-title"><strong>Test it now</strong></h2>
+            <p class="hint">Makes real commits right away so you can see them in your repository.</p>
+            <div class="run-now">
+              <div class="stepper"><button type="button" data-step="-1" aria-label="Fewer">−</button><input id="run-count" type="number" min="1" max="20" value="1" aria-label="Commits to make now"><button type="button" data-step="1" aria-label="More">+</button></div>
+              <button class="btn" id="run-now">Commit now</button>
+            </div>
+            <p class="status" id="run-status" style="margin-top:10px"></p>
           </div>
-          <p class="status" id="run-status" style="margin-top:10px"></p>
         </section>
       </aside>
 
-      <main>
-        <form class="panel" id="settings" novalidate>
-          <h2>Schedule</h2>
-
-          <div class="field">
-            <label for="repo">Repository</label>
-            <div class="repo-line">
-              <select id="repo"><option value="">Loading your repositories…</option></select>
-              <button type="button" class="btn ghost" id="new-repo">New repository</button>
-            </div>
-            <span class="hint">Commits change one file, <code>.github/streak-pulse.txt</code>.</span>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label for="branch">Branch</label>
-              <input id="branch" autocomplete="off" spellcheck="false">
-            </div>
-            <div class="field">
-              <label for="timezone">Time zone</label>
-              <select id="timezone"></select>
+      <main class="main">
+        <section aria-labelledby="activity-title">
+          <h2 class="section-title" id="activity-title"><strong id="s-total">0</strong> commits made by Streak Pilot</h2>
+          <div class="box activity">
+            <div class="box-body"><div class="graph-grid" id="mini" aria-label="Commits made by Streak Pilot per day"></div></div>
+            <div class="activity-foot">
+              <div class="stats">
+                <span><strong id="s-streak">0</strong>day streak</span>
+                <span><strong id="s-days">0</strong>active days</span>
+              </div>
+              <span class="legend">Less <span style="background:var(--c0)"></span><span style="background:var(--c1)"></span><span style="background:var(--c2)"></span><span style="background:var(--c3)"></span><span style="background:var(--c4)"></span> More</span>
             </div>
           </div>
+        </section>
 
-          <div class="row">
+        <form class="box" id="settings" novalidate aria-labelledby="schedule-title">
+          <div class="box-head" id="schedule"><h2 id="schedule-title">Schedule</h2>
+            <label class="switch"><input type="checkbox" id="active" role="switch"><span id="active-label">Running</span></label>
+          </div>
+          <div class="box-body">
+            <div class="field">
+              <label for="repo">Repository</label>
+              <div class="repo-line">
+                <select id="repo"><option value="">Loading your repositories…</option></select>
+                <button type="button" class="btn" id="new-repo">New repository</button>
+              </div>
+              <span class="hint">Commits change one file, <code>.github/streak-pulse.txt</code>. Public repositories count on your graph by default.</span>
+            </div>
+            <div class="grid2 field">
+              <div class="field"><label for="branch">Branch</label><input id="branch" autocomplete="off" spellcheck="false"></div>
+              <div class="field"><label for="timezone">Time zone</label><select id="timezone"></select></div>
+            </div>
             <div class="field">
               <label for="jitter">Random delay</label>
               <select id="jitter">
@@ -91,33 +110,29 @@
               </select>
             </div>
             <div class="field">
-              <span class="label">Schedule</span>
-              <label class="switch"><input type="checkbox" id="active" role="switch"><span id="active-label">Running</span></label>
+              <span class="label">Daily times</span>
+              <span class="hint">Green days are on. Messages can use {n}, {total}, {date} and {time}.</span>
+              <div class="slots" id="slots"></div>
+              <div class="add-row"><button type="button" class="btn" id="add-slot">Add a time</button></div>
             </div>
           </div>
-
-          <div class="field" style="margin-bottom:8px">
-            <span class="label">Daily times</span>
-            <span class="hint">Placeholders for messages: {n}, {total}, {date}, {time}.</span>
-          </div>
-          <div class="slots" id="slots"></div>
-          <button type="button" class="btn ghost" id="add-slot">Add a time</button>
-
-          <div class="save-bar" style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line)">
+          <div class="save-bar">
             <p class="status" id="save-status" role="status"></p>
             <button class="btn primary" id="save" type="submit">Save schedule</button>
           </div>
         </form>
 
-        <section class="panel">
-          <h2>Recent runs</h2>
+        <section class="box" aria-labelledby="runs-title">
+          <div class="box-head"><h2 id="runs-title">Recent runs</h2></div>
           <ul class="runs" id="runs"></ul>
         </section>
 
-        <section class="panel">
-          <h2>Account</h2>
-          <p class="hint" style="margin-bottom:14px">Deleting your account stops all schedules, erases your data and revokes Streak Pilot's GitHub access. Commits already made stay in your repository.</p>
-          <button class="btn danger" id="delete">Delete account</button>
+        <section class="box danger-box" aria-labelledby="danger-title">
+          <div class="box-head"><h2 id="danger-title">Danger zone</h2></div>
+          <div class="box-row">
+            <div><strong>Delete your account</strong><span class="hint">Stops all schedules, erases your data and revokes GitHub access. Commits already made stay.</span></div>
+            <button class="btn danger" id="delete">Delete account</button>
+          </div>
         </section>
       </main>
     </div>
@@ -126,11 +141,11 @@
   <dialog id="repo-dialog">
     <form method="dialog" id="repo-form">
       <h2>New repository</h2>
-      <p>Streak Pilot creates it in your GitHub account and selects it.</p>
+      <p>Streak Pilot creates it in your GitHub account and selects it. Public repositories count on your graph without extra settings.</p>
       <div class="field"><label for="repo-name">Name</label><input id="repo-name" value="streak-pilot" required></div>
-      <label class="switch" style="margin-bottom:18px"><input type="checkbox" id="repo-private" checked role="switch"><span>Private</span></label>
+      <label class="switch"><input type="checkbox" id="repo-private" role="switch"><span>Private</span></label>
       <p class="status err" id="repo-error"></p>
-      <div class="actions"><button class="btn ghost" value="cancel" formnovalidate>Cancel</button><button class="btn primary" id="repo-create" value="create">Create repository</button></div>
+      <div class="actions"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" id="repo-create" value="create">Create repository</button></div>
     </form>
   </dialog>
 
@@ -138,7 +153,7 @@
     <form method="dialog">
       <h2>Delete your account?</h2>
       <p>Schedules stop now and your data is erased. This cannot be undone.</p>
-      <div class="actions"><button class="btn ghost" value="cancel">Keep account</button><button class="btn danger" value="delete">Delete account</button></div>
+      <div class="actions"><button class="btn" value="cancel">Keep account</button><button class="btn danger" value="delete">Delete account</button></div>
     </form>
   </dialog>
 

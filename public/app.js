@@ -49,7 +49,7 @@ function renderSlots() {
         <input type="time" aria-label="Time">
         <div class="stepper"><button type="button" data-d="-1" aria-label="Fewer commits">−</button><input type="number" min="1" max="20" aria-label="Commits"><button type="button" data-d="1" aria-label="More commits">+</button></div>
         <input class="msg" aria-label="Commit message" maxlength="200" spellcheck="false">
-        <button type="button" class="icon-btn" aria-label="Remove this time">Remove</button>
+        <button type="button" class="icon-btn" aria-label="Remove this time" title="Remove this time"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .78 5.78 0 6.75 0h2.5C10.22 0 11 .78 11 1.75ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25ZM4.5 6.5a.75.75 0 0 1 .8.7l.45 6.3h4.5l.45-6.3a.75.75 0 1 1 1.5.1l-.5 7a.75.75 0 0 1-.75.7h-5.9a.75.75 0 0 1-.75-.7l-.5-7a.75.75 0 0 1 .7-.8Z"/></svg></button>
       </div>
       <div class="days" role="group" aria-label="Days"></div>`;
     const [time, , msg] = el.querySelectorAll('.slot-head > input, .slot-head > .stepper, .slot-head > .msg');
@@ -100,7 +100,7 @@ function setStatus(id, text, kind) {
 function renderHeatmap(byDate, tz) {
   const grid = $('mini');
   grid.replaceChildren();
-  const weeks = Math.max(8, Math.min(26, Math.floor((grid.parentElement.clientWidth - 44 + 3) / 14)));
+  const weeks = Math.max(8, Math.min(53, Math.floor((grid.parentElement.clientWidth - 32 + 3) / 14)));
   const todayParts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).formatToParts(Date.now());
   const get = (t) => todayParts.find((p) => p.type === t).value;
   const today = new Date(`${get('year')}-${get('month')}-${get('day')}T12:00:00Z`);
@@ -117,28 +117,62 @@ function renderHeatmap(byDate, tz) {
   }
 }
 
+const ICONS = {
+  ok: '<path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>',
+  error: '<path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>',
+  running: '<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm7-3.25v2.99l2.17 1.3a.75.75 0 0 1-.77 1.29l-2.53-1.52A.75.75 0 0 1 7 8.25v-3.5a.75.75 0 0 1 1.5 0Z"/>',
+};
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
 function renderRuns(runs, tz) {
   const ul = $('runs');
   ul.replaceChildren();
   if (!runs.length) {
     const li = document.createElement('li');
-    li.innerHTML = '<span></span><span class="hint">No runs yet. Your first scheduled commit will show up here.</span><span></span>';
+    li.className = 'empty-row';
+    li.textContent = 'No runs yet. Your first scheduled commit will show up here.';
     ul.append(li);
     return;
   }
-  for (const r of runs) {
+  const shown = renderRuns.all ? runs : runs.slice(0, 10);
+  for (const r of shown) {
     const li = document.createElement('li');
     li.className = r.status;
+    li.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${ICONS[r.status] || ICONS.ok}</svg>`;
     const what = document.createElement('div');
     const title = document.createElement('div');
-    const label = r.status === 'running' ? 'Running…' : `${r.made} of ${r.planned} commit${r.planned === 1 ? '' : 's'}`;
-    title.textContent = `${label} · ${r.kind === 'manual' ? 'test run' : 'scheduled'} · ${r.repo}`;
-    what.append(title);
+    title.className = 'title';
+    title.textContent = r.status === 'running' ? 'Running' : r.status === 'error' ? (r.made ? `Failed after ${plural(r.made, 'commit')}` : 'Failed') : r.made === r.planned ? `Made ${plural(r.made, 'commit')}` : `Made ${r.made} of ${plural(r.planned, 'commit')}`;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `${r.kind === 'manual' ? 'Test run' : 'Scheduled'} in ${r.repo}`;
+    what.append(title, meta);
     if (r.error) { const e = document.createElement('div'); e.className = 'err'; e.textContent = r.error; what.append(e); }
-    const time = document.createElement(r.url ? 'a' : 'time');
-    time.textContent = fmtWhen(r.scheduled_at, tz);
-    if (r.url) { time.href = r.url; time.target = '_blank'; time.rel = 'noopener'; time.style.fontSize = '.86rem'; }
-    li.append(document.createElement('i'), what, time);
+    const when = document.createElement('div');
+    when.className = 'when';
+    const t = document.createElement('time');
+    t.dateTime = new Date(r.scheduled_at).toISOString();
+    t.textContent = fmtWhen(r.scheduled_at, tz);
+    when.append(t);
+    if (r.url) {
+      const a = document.createElement('a');
+      a.href = r.url; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = r.url.split('/').pop().slice(0, 7);
+      a.title = 'View the last commit on GitHub';
+      when.append(document.createElement('br'), a);
+    }
+    li.append(what, when);
+    ul.append(li);
+  }
+  if (runs.length > shown.length) {
+    const li = document.createElement('li');
+    li.className = 'empty-row';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn quiet';
+    b.textContent = `Show ${runs.length - shown.length} more`;
+    b.onclick = () => { renderRuns.all = true; renderRuns(runs, tz); };
+    li.append(b);
     ul.append(li);
   }
 }
@@ -160,12 +194,14 @@ function renderNext() {
   }
   $('next-label').textContent = 'Next commit in';
   const [first, ...rest] = next;
-  $('next-when').textContent = `${fmtTime(first.at, tz)} · ${first.commits} commit${first.commits === 1 ? '' : 's'}`;
+  $('next-when').textContent = `${fmtTime(first.at, tz)}, ${plural(first.commits, 'commit')}`;
   for (const n of rest.slice(0, 4)) {
-    const row = document.createElement('div');
-    row.innerHTML = '<span></span><span></span>';
-    row.children[0].textContent = fmtTime(n.at, tz);
-    row.children[1].textContent = `${n.commits} commit${n.commits === 1 ? '' : 's'}`;
+    const row = document.createElement('li');
+    const a = document.createElement('span');
+    const b = document.createElement('span');
+    a.textContent = fmtTime(n.at, tz);
+    b.textContent = plural(n.commits, 'commit');
+    row.append(a, b);
     $('upcoming').append(row);
   }
   tick();
@@ -174,7 +210,7 @@ function renderNext() {
 function tick() {
   if (!state?.next.length) return;
   const ms = state.next[0].at - Date.now();
-  if (ms <= 0) { $('countdown').textContent = 'Now'; setTimeout(refresh, 20_000); return; }
+  if (ms <= 0) { $('countdown').textContent = 'Now'; setTimeout(() => refresh().catch(() => {}), 20_000); return; }
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const s = Math.floor((ms % 60_000) / 1000);
@@ -214,7 +250,14 @@ function apply(data, { keepForm } = {}) {
   state = data;
   const { user, settings, stats } = data;
   $('login').textContent = user.login;
-  if (user.avatar) { $('avatar').src = user.avatar; $('avatar').classList.remove('hidden'); }
+  if (user.avatar) {
+    for (const id of ['avatar', 'profile-avatar']) { $(id).src = user.avatar; $(id).classList.remove('hidden'); }
+  }
+  $('profile-name').textContent = user.name || user.login;
+  $('profile-login').textContent = user.name ? user.login : '';
+  const on = data.next.length > 0;
+  $('state-pill').className = `pill ${on ? 'on' : !user.tokenOk ? 'warn' : ''}`;
+  $('state-text').textContent = on ? 'Schedule running' : !user.tokenOk ? 'Needs reconnect' : settings.paused ? 'Paused' : 'Not scheduled';
   $('reconnect').classList.toggle('hidden', user.tokenOk);
   $('s-streak').textContent = stats.streak;
   $('s-total').textContent = stats.total;

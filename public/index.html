@@ -3,59 +3,79 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Streak Pilot — schedule your GitHub commits</title>
-  <meta name="description" content="Pick a repository, set the times, and Streak Pilot makes real commits for you every day. Runs in the cloud, not on your computer.">
+  <title>Streak Pilot: schedule your GitHub commits</title>
+  <meta name="description" content="Pick a repository and the times of day. Streak Pilot makes real commits for you every day from the cloud, so your computer can stay off.">
+  <meta property="og:title" content="Streak Pilot">
+  <meta property="og:description" content="Schedule real GitHub commits at exact times, every day.">
+  <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mona+Sans:wdth,wght@75..125,300..800&display=swap">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="wrap">
-    <header class="top">
-      <a class="brand" href="/"><i aria-hidden="true"></i>Streak Pilot</a>
-      <a class="btn ghost" href="/auth/login">Sign in</a>
-    </header>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Streak Pilot home">
+        <svg viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="15" width="6" height="10" rx="1.5" fill="var(--c2)"/><rect x="10" y="9" width="6" height="16" rx="1.5" fill="var(--c3)"/><rect x="19" y="2" width="6" height="23" rx="1.5" fill="var(--c4)"/></svg>
+        Streak Pilot
+      </a>
+      <nav><a class="btn" href="/auth/login">Sign in</a></nav>
+    </div>
+  </header>
 
-    <main>
-      <section class="hero">
-        <h1>Your commits, on a schedule you set.</h1>
-        <p>Choose a repository and the times of day. Streak Pilot makes real commits at those minutes, every day, from the cloud. Your computer can stay off.</p>
-        <div id="error" class="notice hidden" role="alert"></div>
-        <div class="actions">
-          <a class="btn primary" href="/auth/login">
-            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            Sign in with GitHub
-          </a>
-        </div>
-        <div class="graph" aria-label="Illustration of a year of daily commits">
-          <div class="graph-grid" id="hero-grid"></div>
-          <div class="graph-foot"><span>One year, no gaps</span><span>Every square is a commit Streak Pilot made on time</span></div>
-        </div>
-      </section>
+  <main id="main" class="wrap">
+    <section class="hero">
+      <h1>Keep your contribution graph green, every day.</h1>
+      <p>Pick a repository and the times of day. Streak Pilot makes real commits at those minutes from the cloud, so your computer can stay off.</p>
+      <div id="error" class="notice hidden" role="alert"></div>
+      <div class="actions">
+        <a class="btn primary lg" href="/auth/login">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Sign in with GitHub
+        </a>
+        <small>Free. Takes about a minute to set up.</small>
+      </div>
 
-      <section class="steps" aria-label="How it works">
-        <ol>
-          <li><b>1</b><h2>Sign in with GitHub</h2><p>Streak Pilot asks for repository access so it can commit on your behalf. Nothing else.</p></li>
-          <li><b>2</b><h2>Pick or create a repository</h2><p>Use one you have, or let Streak Pilot create a private one just for this.</p></li>
-          <li><b>3</b><h2>Set your times</h2><p>Add as many daily slots as you like, choose the days and how many commits each slot makes.</p></li>
-        </ol>
-      </section>
+      <figure class="showcase" aria-label="Example contribution graph: patchy at first, then a commit every day after Streak Pilot starts">
+        <header><strong>Example year</strong><span>Before and after a daily schedule</span></header>
+        <div class="scroller"><div class="graph-grid hero-graph" id="hero-grid"></div></div>
+        <footer>
+          <span class="marker"><i></i>Streak Pilot turned on</span>
+          <span class="legend">Less <span style="background:var(--c0)"></span><span style="background:var(--c1)"></span><span style="background:var(--c2)"></span><span style="background:var(--c3)"></span><span style="background:var(--c4)"></span> More</span>
+        </footer>
+      </figure>
+    </section>
 
-      <section class="facts">
-        <div><h2>Exact to the minute</h2><p>Each account has its own timer in the cloud, so a 09:15 slot commits at 09:15 in your time zone. Add a random delay if you prefer it to look less regular.</p></div>
-        <div><h2>Your token stays sealed</h2><p>The GitHub token is encrypted before it is stored and is only used to write one file, <code>.github/streak-pulse.txt</code>, in the repository you pick.</p></div>
-        <div><h2>Leave whenever you want</h2><p>Pause your schedule with one switch. Deleting your account removes your data and revokes GitHub access.</p></div>
-        <div><h2>What GitHub counts</h2><p>GitHub decides what appears on your graph: commits must land on the default branch, and private repositories only show if you enable private contributions on your profile.</p></div>
-      </section>
-    </main>
+    <section class="how" aria-labelledby="how-title">
+      <h2 id="how-title">Set up once</h2>
+      <ol>
+        <li><h3>Sign in with GitHub</h3><p>Streak Pilot asks for repository access so it can commit as you. It never reads your code.</p></li>
+        <li><h3>Choose a repository</h3><p>Use one you already have, or create a fresh one from the dashboard. Commits only change <code>.github/streak-pulse.txt</code>.</p></li>
+        <li><h3>Add your times</h3><p>As many daily times as you want, on the days you pick, with 1 to 20 commits each. Add a random delay if you want them to look less regular.</p></li>
+      </ol>
+    </section>
 
-    <footer>
-      <span>Streak Pilot is free and open source.</span>
-      <span>Use it in line with GitHub's terms.</span>
-    </footer>
-  </div>
+    <section class="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title">Good to know</h2>
+      <dl>
+        <div><dt>Does my computer need to be on?</dt><dd>No. Every account has its own timer in the cloud that fires at the exact minute, in your time zone.</dd></div>
+        <div><dt>Will the squares turn green?</dt><dd>Yes, when the commits land on the default branch of a public repository. For a private repository, turn on private contributions in your GitHub profile settings.</dd></div>
+        <div><dt>How is my GitHub access stored?</dt><dd>Your token is encrypted before it is saved and is used only to write the pulse file in the repository you choose.</dd></div>
+        <div><dt>Can I stop it?</dt><dd>Pause the schedule with one switch, or delete your account. Deleting erases your data and revokes Streak Pilot's GitHub access.</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap">
+      <span>Streak Pilot is free and open source. Not affiliated with GitHub.</span>
+      <span>Use it in line with GitHub's terms of service.</span>
+    </div>
+  </footer>
   <script src="/landing.js" type="module"></script>
 </body>
 </html>
