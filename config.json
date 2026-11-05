@@ -1,0 +1,8 @@
+{
+  "repository": "",
+  "branch": "main",
+  "schedules": [
+    { "id": "morning", "time": "09:15", "commits": 1, "message": "chore: daily streak" }
+  ],
+  "timezone": "Europe/Berlin"
+}

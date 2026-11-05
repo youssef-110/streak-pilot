@@ -1,0 +1,8 @@
+# Runtime state and secrets
+.streak-state.json
+.env
+.env.*
+
+# Node/npm
+node_modules/
+npm-debug.log*
