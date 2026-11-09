@@ -66,9 +66,30 @@ export async function exchangeCode(env, code) {
     headers: { accept: 'application/json', 'content-type': 'application/json', 'user-agent': UA },
     body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code }),
   });
-  const data = await res.json();
-  if (!data.access_token) throw new Error(data.error_description || 'GitHub sign-in failed.');
-  return { token: data.access_token, scope: data.scope || '' };
+  return tokenSet(await res.json(), 'GitHub sign-in failed.');
+}
+
+function tokenSet(data, fallback) {
+  if (!data.access_token) throw new Error(data.error_description || data.error || fallback);
+  return {
+    token: data.access_token,
+    refresh: data.refresh_token || null,
+    expiresIn: Number(data.expires_in) || null,
+    scope: data.scope || '',
+  };
+}
+
+/** Trade a refresh token for a new access + refresh token pair. */
+export async function refreshAccess(env, refreshToken) {
+  const res = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: { accept: 'application/json', 'content-type': 'application/json', 'user-agent': UA },
+    body: JSON.stringify({
+      client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET,
+      grant_type: 'refresh_token', refresh_token: refreshToken,
+    }),
+  });
+  return tokenSet(await res.json(), 'GitHub could not renew access.');
 }
 
 export async function revokeGrant(env, token) {

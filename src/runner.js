@@ -1,5 +1,5 @@
-import { decrypt } from './crypto.js';
 import { client } from './github.js';
+import { accessToken, markTokenBroken } from './tokens.js';
 import { renderMessage } from './schedule.js';
 
 const transient = (e) => !e.status || e.status >= 500 || e.status === 409;
@@ -22,22 +22,26 @@ export async function execute(env, user, { runKey, kind, date, time, scheduledAt
   let url = null;
   let error = null;
   try {
-    const gh = client(env, await decrypt(user.token_enc, env.TOKEN_KEY));
+    let gh = client(env, await accessToken(env, user));
+    let renewed = false;
     for (let attempt = 0; attempt < 3 && made < count; attempt++) {
       try {
         const r = await gh.commit(user.repo, user.branch, messages.slice(made), new Date().toISOString());
         made += r.made; url = r.url || url; error = null;
       } catch (e) {
         made += e.made || 0; url = e.url || url; error = e;
+        if (e.status === 401 && !renewed) {
+          // Token died early: renew once and retry right away.
+          renewed = true;
+          try { gh = client(env, await accessToken(env, user, { force: true })); attempt--; continue; } catch (re) { error = re; break; }
+        }
         if (!transient(e)) break;
         await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
       }
     }
   } catch (e) { error = e; }
 
-  if (error?.status === 401) {
-    await env.DB.prepare('UPDATE users SET token_ok = 0 WHERE id = ?').bind(user.id).run();
-  }
+  if (error?.status === 401) await markTokenBroken(env, user.id);
   const status = error ? 'error' : 'ok';
   const message = error ? friendlyError(error) : null;
   await env.DB.prepare('UPDATE runs SET status = ?, made = ?, url = ?, error = ?, finished_at = ? WHERE id = ?')
@@ -46,7 +50,7 @@ export async function execute(env, user, { runKey, kind, date, time, scheduledAt
 }
 
 export function friendlyError(e) {
-  if (e.status === 401) return 'GitHub access was revoked. Sign in again to reconnect.';
+  if (e.status === 401) return 'GitHub access could not be renewed. Sign in again to reconnect.';
   if (e.status === 403) return `GitHub refused the commit: ${e.message}`;
   if (e.status === 404) return 'Repository or branch not found, or access is missing.';
   if (e.status === 409) return 'Branch changed during the run. It will retry next time.';

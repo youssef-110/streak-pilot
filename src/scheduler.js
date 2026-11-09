@@ -30,7 +30,8 @@ export class Scheduler extends DurableObject {
 
   async config(userId) {
     const user = await loadUser(this.env, userId);
-    if (!user || user.paused || !user.repo || !user.token_enc || !user.token_ok) return null;
+    // Keep firing while a refresh token exists, even if the last run failed: it may renew.
+    if (!user || user.paused || !user.repo || !user.token_enc || (!user.token_ok && !user.refresh_enc)) return null;
     const slots = await loadSlots(this.env, userId);
     if (!slots.length) return null;
     return { user, slots, tz: user.timezone, jitter: user.jitter, seed: String(userId) };

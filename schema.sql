@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url TEXT,
   token_enc TEXT,                         -- AES-GCM encrypted OAuth token; NULL after disconnect
   token_ok INTEGER NOT NULL DEFAULT 1,    -- 0 when GitHub rejected the token
+  refresh_enc TEXT,                       -- AES-GCM encrypted refresh token (GitHub tokens expire after 8h)
+  token_expires_at INTEGER,               -- ms epoch when the access token expires; NULL = no expiry
   repo TEXT NOT NULL DEFAULT '',
   branch TEXT NOT NULL DEFAULT 'main',
   timezone TEXT NOT NULL DEFAULT 'UTC',

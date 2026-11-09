@@ -13,6 +13,7 @@ async function api(path, opts = {}) {
   });
   if (res.status === 401) { location.href = '/'; throw new Error('signed out'); }
   const data = await res.json().catch(() => ({}));
+  if (res.status === 409) $('reconnect').classList.remove('hidden');
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }

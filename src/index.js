@@ -1,4 +1,5 @@
-import { encrypt, decrypt, randomToken, sha256 } from './crypto.js';
+import { decrypt, randomToken, sha256 } from './crypto.js';
+import { accessToken, storeTokens, markTokenBroken } from './tokens.js';
 import { client, exchangeCode, revokeGrant, GitHubError } from './github.js';
 import { validateSettings, nextOccurrences, localDate, zonedParts } from './schedule.js';
 import { execute, friendlyError } from './runner.js';
@@ -8,7 +9,9 @@ export { Scheduler } from './scheduler.js';
 
 const SESSION = '__Host-sp_session';
 const STATE = '__Host-sp_state';
-const SESSION_DAYS = 30;
+const SESSION_DAYS = 90;
+// Browsers cap cookie lifetime around 400 days; the server-side expiry slides on every visit.
+const COOKIE_DAYS = 400;
 
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
@@ -31,10 +34,16 @@ const scheduler = (env, userId) => env.SCHEDULER.get(env.SCHEDULER.idFromName(St
 async function currentUser(req, env) {
   const raw = cookies(req)[SESSION];
   if (!raw) return null;
+  const idHash = await sha256(raw);
   const row = await env.DB.prepare(
-    'SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id_hash = ? AND s.expires_at > ?',
-  ).bind(await sha256(raw), Date.now()).first();
-  return row || null;
+    'SELECT u.*, s.expires_at AS session_expires FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id_hash = ? AND s.expires_at > ?',
+  ).bind(idHash, Date.now()).first();
+  if (!row) return null;
+  // Sliding session: anyone who visits at least every 90 days stays signed in.
+  if (row.session_expires - Date.now() < (SESSION_DAYS - 1) * 86_400_000) {
+    await env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE id_hash = ?').bind(Date.now() + SESSION_DAYS * 86_400_000, idHash).run();
+  }
+  return row;
 }
 
 async function startSession(env, userId) {
@@ -44,17 +53,16 @@ async function startSession(env, userId) {
     env.DB.prepare('INSERT INTO sessions (id_hash, user_id, expires_at) VALUES (?, ?, ?)')
       .bind(await sha256(raw), userId, Date.now() + SESSION_DAYS * 86_400_000),
   ]);
-  return setCookie(SESSION, raw, SESSION_DAYS * 86_400);
+  return setCookie(SESSION, raw, COOKIE_DAYS * 86_400);
 }
 
-async function upsertUser(env, gh, token) {
+async function upsertUser(env, gh, tokens) {
   const profile = await gh.user();
-  const tokenEnc = await encrypt(token, env.TOKEN_KEY);
   await env.DB.prepare(
-    `INSERT INTO users (id, login, name, avatar_url, token_enc, token_ok, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)
-     ON CONFLICT(id) DO UPDATE SET login = excluded.login, name = excluded.name,
-       avatar_url = excluded.avatar_url, token_enc = excluded.token_enc, token_ok = 1`,
-  ).bind(profile.id, profile.login, profile.name || null, profile.avatar_url || null, tokenEnc, Date.now()).run();
+    `INSERT INTO users (id, login, name, avatar_url, created_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET login = excluded.login, name = excluded.name, avatar_url = excluded.avatar_url`,
+  ).bind(profile.id, profile.login, profile.name || null, profile.avatar_url || null, Date.now()).run();
+  await storeTokens(env, profile.id, tokens);
   await scheduler(env, profile.id).rearm(profile.id);
   return profile.id;
 }
@@ -78,8 +86,8 @@ async function authCallback(req, env) {
   const code = url.searchParams.get('code');
   if (!code || !state || state !== cookies(req)[STATE]) return Response.redirect(`${url.origin}/?error=state`, 302);
   try {
-    const { token } = await exchangeCode(env, code);
-    const userId = await upsertUser(env, client(env, token), token);
+    const tokens = await exchangeCode(env, code);
+    const userId = await upsertUser(env, client(env, tokens.token), tokens);
     const headers = new Headers({ location: '/app' });
     headers.append('set-cookie', await startSession(env, userId));
     headers.append('set-cookie', setCookie(STATE, '', 0));
@@ -93,7 +101,7 @@ async function authCallback(req, env) {
 // Local development only: sign in as a fake user backed by the mock GitHub client.
 async function authDev(req, env) {
   if (env.DEV_LOGIN !== '1' || env.MOCK_GITHUB !== '1') return fail(404, 'Not found');
-  const userId = await upsertUser(env, client(env, ''), 'dev-token');
+  const userId = await upsertUser(env, client(env, ''), { token: 'dev-token', refresh: 'dev-refresh', expiresIn: 28_800 });
   return new Response(null, { status: 302, headers: { location: '/app', 'set-cookie': await startSession(env, userId) } });
 }
 
@@ -148,7 +156,7 @@ async function saveSettings(req, user, env) {
   let warning = null;
   if (value.repo && (value.repo !== user.repo || value.branch !== user.branch)) {
     try {
-      const repo = await client(env, await decrypt(user.token_enc, env.TOKEN_KEY)).repo(value.repo);
+      const repo = await client(env, await accessToken(env, user)).repo(value.repo);
       if (repo.permissions && !repo.permissions.push) return fail(400, 'You do not have write access to that repository.');
       if (repo.default_branch && repo.default_branch !== value.branch) {
         warning = `GitHub only counts commits on the default branch (${repo.default_branch}) toward your graph.`;
@@ -172,7 +180,7 @@ async function saveSettings(req, user, env) {
 }
 
 async function listRepos(user, env) {
-  const repos = await client(env, await decrypt(user.token_enc, env.TOKEN_KEY)).repos();
+  const repos = await client(env, await accessToken(env, user)).repos();
   return json(repos.filter((r) => !r.archived).map((r) => ({ name: r.full_name, private: r.private, branch: r.default_branch })));
 }
 
@@ -181,7 +189,7 @@ async function createRepo(req, user, env) {
   const name = String(body.name || 'streak-pilot').trim();
   if (!/^[\w.-]{1,100}$/.test(name)) return fail(400, 'Repository names can use letters, numbers, ., - and _.');
   try {
-    const r = await client(env, await decrypt(user.token_enc, env.TOKEN_KEY)).createRepo(name, body.private !== false);
+    const r = await client(env, await accessToken(env, user)).createRepo(name, body.private !== false);
     return json({ name: r.full_name, private: r.private, branch: r.default_branch || 'main' });
   } catch (e) {
     if (e instanceof GitHubError) return fail(400, e.status === 422 ? 'You already have a repository with that name.' : friendlyError(e));
@@ -236,15 +244,33 @@ async function route(req, env) {
   if (path.startsWith('/api/')) {
     const user = await currentUser(req, env);
     if (!user) return fail(401, 'Sign in first.');
-    if (path === '/api/me' && method === 'GET') return json(await me(user, env));
-    if (path === '/api/settings' && method === 'PUT') return saveSettings(req, user, env);
-    if (path === '/api/repos' && method === 'GET') return listRepos(user, env);
-    if (path === '/api/repos' && method === 'POST') return createRepo(req, user, env);
-    if (path === '/api/run' && method === 'POST') return runNow(req, user, env);
-    if (path === '/api/account' && method === 'DELETE') return deleteAccount(user, env);
-    return fail(404, 'Not found');
+    const retry = req.clone();
+    try {
+      return await api(req, env, user, path, method);
+    } catch (e) {
+      // GitHub refusing the token is not a sign-out: renew once, else keep the session and ask to reconnect.
+      if (e instanceof GitHubError && e.status === 401) {
+        try {
+          await accessToken(env, user, { force: true });
+          return await api(retry, env, user, path, method);
+        } catch {}
+        await markTokenBroken(env, user.id);
+        return fail(409, 'GitHub access needs reconnecting. Use Reconnect GitHub at the top of the page.');
+      }
+      throw e;
+    }
   }
   return env.ASSETS.fetch(req);
+}
+
+async function api(req, env, user, path, method) {
+  if (path === '/api/me' && method === 'GET') return json(await me(user, env));
+  if (path === '/api/settings' && method === 'PUT') return saveSettings(req, user, env);
+  if (path === '/api/repos' && method === 'GET') return listRepos(user, env);
+  if (path === '/api/repos' && method === 'POST') return createRepo(req, user, env);
+  if (path === '/api/run' && method === 'POST') return runNow(req, user, env);
+  if (path === '/api/account' && method === 'DELETE') return deleteAccount(user, env);
+  return fail(404, 'Not found');
 }
 
 export default {
@@ -253,7 +279,6 @@ export default {
       return await route(req, env);
     } catch (e) {
       console.error('unhandled', e.stack || e.message);
-      if (e instanceof GitHubError && e.status === 401) return fail(401, 'GitHub access was revoked. Sign in again.');
       return fail(500, 'Something went wrong. Try again in a moment.');
     }
   },
